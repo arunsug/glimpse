@@ -63,10 +63,10 @@ pub struct BasePhysicsBundle {
 }
 
 #[derive(Component, Default, Debug)]
-pub struct OverrideVelocity(bool, pub Vec2);
+pub struct OverrideVelocity(pub bool, pub Vec2);
 
 #[derive(Component, Default, Debug)]
-pub struct OverrideAcceleration(bool, pub Vec2);
+pub struct OverrideAcceleration(pub bool, pub Vec2);
 
 #[derive(Component, Default, Debug)]
 pub struct AdjustVelocity(pub Vec2);
@@ -74,6 +74,8 @@ pub struct AdjustVelocity(pub Vec2);
 #[derive(Component, Default, Debug)]
 pub struct AdjustAcceleration(pub Vec2);
 
+
+// TODO we could do this with events instead I think
 #[derive(Bundle, Default)]
 pub struct PhysicsControllerBundle {
     pub over_vel: OverrideVelocity,
@@ -84,9 +86,9 @@ pub struct PhysicsControllerBundle {
 
 #[derive(Component)]
 pub struct Jumper {
-    is_jumping: bool,
-    can_jump: bool,
-    timer: Timer
+    pub is_jumping: bool,
+    pub can_jump: bool,
+    pub timer: Timer
 }
 
 pub fn apply_acceleration_adjustments(mut query: Query<(&mut Acceleration, &AdjustAcceleration)>) {
@@ -171,7 +173,7 @@ pub fn apply_position_to_transform(mut query: Query<(&Position, &mut Transform)>
 
 pub fn tick_jump_times(mut query: Query<&mut Jumper>) {
     for mut jumper in query.iter_mut() {
-        jumper.timer.tick (Duration::from_secs(PHYSICS_TIME_STEP));
+        jumper.timer.tick (Duration::from_secs(PHYSICS_TIME_STEP as u64));
     }
 }
 

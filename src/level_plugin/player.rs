@@ -7,13 +7,6 @@ use super::{physics::*, walls::{WallCollider, WallSensor}};
 #[derive(Component, Default)]
 pub struct Player;
 
-#[derive(Component)]
-pub struct Jumper {
-    is_jumping: bool,
-    can_jump: bool,
-    timer: Timer
-}
-
 impl Default for Jumper {
     fn default() -> Self {
         Jumper {
@@ -31,10 +24,13 @@ pub struct DoubleJumper {
 
 const PLAYER_COLOR: Color = Color::rgb(0.2, 0.0, 0.2);
 
-const PLAYER_JUMP_ACCEL: Vec2 = Vec2 {x:0.0, y:50.0};
 const PLAYER_RUN_ACCEL: Vec2 = Vec2 {x:25.0, y:0.0};
 
-const PLAYER_JUMP_TIME:f32 = 0.1;
+const PLAYER_JUMP_ACCEL: Vec2 = Vec2 {x:0.0, y:100.0};
+const PLAYER_JUMP_VEL:Vec2 = Vec2 {x: 0.0, y: 5.0};
+const PLAYER_JUMP_TIME:f32 = 0.3;
+
+
 
 #[derive(Bundle, Default)]
 pub struct PlayerBundle {
@@ -81,9 +77,9 @@ impl PlayerBundle {
 pub fn move_player(
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<(&WallSensor, &mut Jumper, &mut AdjustAcceleration, &mut AdjustVelocity), With<Player>>
+    mut query: Query<(&WallSensor, &mut Jumper, &mut AdjustAcceleration, &mut OverrideVelocity), With<Player>>
 ) {
-    let (wall_sensor, mut jumper, mut adjust_accel, mut adjust_vel, ) = query.single_mut();
+    let (wall_sensor, mut jumper, mut adjust_accel, mut over_vel, ) = query.single_mut();
     if keyboard_input.just_pressed(KeyCode::Left) {
         adjust_accel.0 -= PLAYER_RUN_ACCEL;
     } else if keyboard_input.just_released(KeyCode::Left) {
@@ -101,12 +97,16 @@ pub fn move_player(
     }
     if keyboard_input.pressed(KeyCode::Up) && wall_sensor.down && !jumper.is_jumping {
         jumper.is_jumping = true;
-        adjust_accel.0 += PLAYER_JUMP_ACCEL;
+        //adjust_accel.0 += PLAYER_JUMP_ACCEL;
+        over_vel.1 = PLAYER_JUMP_VEL;
+        over_vel.0 = true;
     }
     if jumper.is_jumping && (keyboard_input.just_released(KeyCode::Up) || jumper.timer.finished()) {
         jumper.is_jumping = false;
         jumper.timer.reset();
-        adjust_accel.0 -= PLAYER_JUMP_ACCEL;
+        //adjust_accel.0 -= PLAYER_JUMP_ACCEL;
+        over_vel.1 = Vec2::ZERO;
+        over_vel.0 = false;
     }
 
     if keyboard_input.pressed(KeyCode::Down) {

@@ -40,8 +40,8 @@ impl Plugin for LevelPlugin {
                 (apply_acceleration_adjustments, apply_gravity, apply_resistance, apply_friction, apply_acceleration_override, // apply forces (aka set aceeleration)
                 apply_velocity_adjustments, apply_accel, apply_velocity_override, // apply acceleration (aka set velocity)
                 handle_wall_collisions, // hanlde casting for collisions
-                apply_velocity, apply_position_to_transform, //apply velocity (aka set positions) 
-                ).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
+                apply_velocity, //apply velocity (aka set positions) 
+                apply_position_to_transform, tick_jump_times).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
             //.configure_sets(Physics::ApplyForces)
             .add_system(cleanup_level.in_schedule(OnExit(GlimpseState::GameRunning)));
 
