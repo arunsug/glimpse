@@ -8,16 +8,12 @@ pub struct Wall;
 #[derive(Component, Default)]
 pub struct WallCollider;
 
-// shoudl we just use this and set bools or events
 #[derive(Component, Default)]
 pub struct WallSensor {
     pub left: bool,
     pub right: bool,
     pub down: bool
 }
-
-// we can use events to dectet floor or driectly use a wall Sensor
-pub struct GroundedEvent(Entity);
 
 #[derive(Component, Default)]
 pub struct GroundSensor(bool);
@@ -58,7 +54,6 @@ pub fn handle_wall_collisions(
     wall_query: Query<(&Position, &Shape), (With<Wall>, Without<WallCollider>)>,
     mut wall_collider_query: Query<(&mut Position, &Shape, &mut Velocity, Option<&mut WallSensor>), 
         (With<WallCollider>, Without<Wall>)>
-    //,mut ev_ground_events: EventWriter<GroundedEvent>
 ) {
     let zero_velocity = Velocity(Vec2::ZERO);
     for (mut col_pos, col_shape, mut col_vel, mut wall_sensor) in wall_collider_query.iter_mut() {

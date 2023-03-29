@@ -40,15 +40,11 @@ const PLAYER_JUMP_TIME:f32 = 0.1;
 pub struct PlayerBundle {
     pub player: Player,
     pub sprite_bundle: SpriteBundle,
-    pub position: Position,
-    pub shape: Shape,
-    pub accel: Acceleration,
-    pub vel: Velocity,
+    pub physics: BasePhysicsBundle,
     pub gravity: Gravity,
     pub wall_collider: WallCollider,
     pub wall_sensor: WallSensor,
-    pub resistance: Resistance,
-    pub friction: Friction,
+    pub physics_controller: PhysicsControllerBundle,
     pub jumper: Jumper
 }
 
@@ -68,9 +64,15 @@ impl PlayerBundle {
                 },
                 ..default()
             },
-            resistance: Resistance(Vec2 {x:0.9, y:0.2}),
-            friction: Friction(Vec2 { x:5.0, y:0.0 }),
-            shape: Shape::Rect(size),
+            physics: BasePhysicsBundle {
+                resistance: Resistance(Vec2 {x:0.9, y:0.2}),
+                friction: Friction(Vec2 { x:5.0, y:0.0 }),
+                body: Body {
+                    position: Position(size),
+                    shape: Shape::Rect(size) 
+                },
+                ..default()
+            },
             ..default()
         }
     }
@@ -79,30 +81,32 @@ impl PlayerBundle {
 pub fn move_player(
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut ev_move_player: EventWriter<AccelerateEntityEvent>,    
-    mut query: Query<(Entity, &WallSensor, &mut Jumper), With<Player>>
+    mut query: Query<(&WallSensor, &mut Jumper, &mut AdjustAcceleration, &mut AdjustVelocity), With<Player>>
 ) {
-    let (player_entity, wall_sensor, mut jumper) = query.single_mut();
-    if keyboard_input.pressed(KeyCode::Left) {
-       ev_move_player.send(AccelerateEntityEvent(player_entity, -PLAYER_RUN_ACCEL));
+    let (wall_sensor, mut jumper, mut adjust_accel, mut adjust_vel, ) = query.single_mut();
+    if keyboard_input.just_pressed(KeyCode::Left) {
+        adjust_accel.0 -= PLAYER_RUN_ACCEL;
+    } else if keyboard_input.just_released(KeyCode::Left) {
+        adjust_accel.0 += PLAYER_RUN_ACCEL;
     }
 
-    if keyboard_input.pressed(KeyCode::Right) {
-       ev_move_player.send(AccelerateEntityEvent(player_entity, PLAYER_RUN_ACCEL));
+    if keyboard_input.just_pressed(KeyCode::Right) {
+       adjust_accel.0 += PLAYER_RUN_ACCEL;
+    } else if keyboard_input.just_released(KeyCode::Right) {
+        adjust_accel.0 -= PLAYER_RUN_ACCEL;
     }
 
-    // this doesn't work we dont' now how many we are sending and how often
-    debug!("jumping info timer {}        is jumping {}       wallsensor.down {}", jumper.timer.finished(), jumper.is_jumping, wall_sensor.down);
-    if keyboard_input.pressed(KeyCode::Up) && (wall_sensor.down || jumper.is_jumping) {
-        // we need to send a jump signal to the thing I guess and the apply the acceleration in the physcis system
-        // no just send the jump acceleration here
-        ev_move_player.send(AccelerateEntityEvent(player_entity, PLAYER_JUMP_ACCEL)); //*(PLAYER_JUMP_TIME - jumper.timer.elapsed_secs()) / PLAYER_JUMP_TIME));
-        jumper.is_jumping = true;
+    if jumper.is_jumping {    
         jumper.timer.tick(time.delta());
     }
-    if keyboard_input.just_released(KeyCode::Up) || jumper.timer.finished() {
+    if keyboard_input.pressed(KeyCode::Up) && wall_sensor.down && !jumper.is_jumping {
+        jumper.is_jumping = true;
+        adjust_accel.0 += PLAYER_JUMP_ACCEL;
+    }
+    if jumper.is_jumping && (keyboard_input.just_released(KeyCode::Up) || jumper.timer.finished()) {
         jumper.is_jumping = false;
         jumper.timer.reset();
+        adjust_accel.0 -= PLAYER_JUMP_ACCEL;
     }
 
     if keyboard_input.pressed(KeyCode::Down) {

@@ -17,8 +17,8 @@ impl Plugin for LevelPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(setup_level.in_schedule(OnEnter(GlimpseState::GameRunning)))
             .add_system(move_player.in_set(OnUpdate(GlimpseState::GameRunning)))
-            .add_event::<AccelerateEntityEvent>()
-            .add_event::<VelocitateEntityEvent>()
+            //.add_event::<AccelerateEntityEvent>()
+            //.add_event::<VelocitateEntityEvent>()
             .insert_resource(FixedTime::new_from_secs(PHYSICS_TIME_STEP)) 
             // TODO i think we can avoid chaining everythign some stuff can be in parallel
             /* .add_systems((handle_acceleration_events, apply_gravity, apply_resistance, apply_friction).chain().in_set(PhysicsSet::ApplyForces)
@@ -37,8 +37,8 @@ impl Plugin for LevelPlugin {
             // we should be using the above code to schedule our physics system but it doesn't work
             // the acceleartion sometimes happens after casting which breaks teh whole thing
             .add_systems(
-                (handle_acceleration_events, apply_gravity, apply_resistance, apply_friction, // apply forces (aka set aceeleration)
-                apply_accel, handle_velocity_events, // apply acceleration (aka set velocity)
+                (apply_acceleration_adjustments, apply_gravity, apply_resistance, apply_friction, apply_acceleration_override, // apply forces (aka set aceeleration)
+                apply_velocity_adjustments, apply_accel, apply_velocity_override, // apply acceleration (aka set velocity)
                 handle_wall_collisions, // hanlde casting for collisions
                 apply_velocity, apply_position_to_transform, //apply velocity (aka set positions) 
                 ).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))

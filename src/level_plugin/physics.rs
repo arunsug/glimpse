@@ -1,5 +1,6 @@
 // TODO break this into a plugin
 use bevy::prelude::*;
+use bevy::utils::Duration;
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum PhysicsSet {
@@ -12,6 +13,9 @@ pub enum PhysicsSet {
 
 pub const PHYSICS_TIME_STEP: f32 = 1.0 / 240.0;
 pub const MU: f32 = 0.0000003;
+
+#[derive(Component, Default)]
+pub struct Gravity;
 
 #[derive(Component, Default, Debug)]
 pub struct Resistance(pub Vec2);
@@ -28,11 +32,6 @@ pub struct Acceleration(pub Vec2);
 #[derive(Component, Default, Debug)]
 pub struct Position(pub Vec2);
 
-// These events are for affection and an Enitity outside of usual physics
-// event to accelerate an entity 
-pub struct AccelerateEntityEvent(pub Entity, pub Vec2);
-// event to velocitate an entity 
-pub struct VelocitateEntityEvent(pub Entity, pub Vec2);
 
 #[derive(Component)]
 pub enum Shape {
@@ -53,25 +52,67 @@ pub struct Body {
     pub shape: Shape
 }
 
-#[derive(Component, Default)]
-pub struct Gravity;
 
-// TODO? if we add a is velcitatbel component we could filter out things that had no control outside of physics
-// but I think that is nothing so why bother. Same with acceleration
-pub fn handle_velocity_events(mut query: Query<&mut Velocity>, mut ev_vel: EventReader<VelocitateEntityEvent>) { 
-    for VelocitateEntityEvent(entity, vel) in ev_vel.iter() {
-        match query.get_mut(*entity) {
-            Ok(mut velocity) => velocity.0 += *vel,
-            Err(_) => panic!("we tried to velicictate an entity without velocity")
+#[derive(Bundle, Default)]
+pub struct BasePhysicsBundle {
+    pub body: Body,
+    pub velocity: Velocity,
+    pub acceleration: Acceleration,
+    pub resistance: Resistance,
+    pub friction: Friction,
+}
+
+#[derive(Component, Default, Debug)]
+pub struct OverrideVelocity(bool, pub Vec2);
+
+#[derive(Component, Default, Debug)]
+pub struct OverrideAcceleration(bool, pub Vec2);
+
+#[derive(Component, Default, Debug)]
+pub struct AdjustVelocity(pub Vec2);
+
+#[derive(Component, Default, Debug)]
+pub struct AdjustAcceleration(pub Vec2);
+
+#[derive(Bundle, Default)]
+pub struct PhysicsControllerBundle {
+    pub over_vel: OverrideVelocity,
+    pub over_accel: OverrideAcceleration,
+    pub adj_vel: AdjustVelocity,
+    pub adj_acce: AdjustAcceleration
+}
+
+#[derive(Component)]
+pub struct Jumper {
+    is_jumping: bool,
+    can_jump: bool,
+    timer: Timer
+}
+
+pub fn apply_acceleration_adjustments(mut query: Query<(&mut Acceleration, &AdjustAcceleration)>) {
+    for (mut accel, adjust) in query.iter_mut() {
+        accel.0 += adjust.0;
+    }
+}
+
+pub fn apply_velocity_adjustments(mut query: Query<(&mut Velocity, &AdjustVelocity)>) {
+    for (mut vel, adjust) in query.iter_mut() {
+        vel.0 += adjust.0;
+    }
+}
+
+pub fn apply_acceleration_override(mut query: Query<(&mut Acceleration, &OverrideAcceleration)>) {
+    for (mut accel, over) in query.iter_mut() {
+        if over.0 {
+            accel.0 = over.1;
         }
     }
 }
 
-pub fn handle_acceleration_events(mut query: Query<&mut Acceleration>, mut ev_accel: EventReader<AccelerateEntityEvent>) {
-    for AccelerateEntityEvent(entity, accel) in ev_accel.iter() {
-        match query.get_mut(*entity) {
-            Ok(mut acceleration) => acceleration.0 += *accel,
-            Err(_) => panic!("we tried to accelerate a non accelerable entity")
+pub fn apply_velocity_override(mut query: Query<(&mut Velocity, &OverrideVelocity)>) {
+    for (mut vel, over) in query.iter_mut() {
+        if over.0 {
+            vel.0 = over.1;
         }
     }
 }
@@ -127,32 +168,12 @@ pub fn apply_position_to_transform(mut query: Query<(&Position, &mut Transform)>
         trans.translation = pos.0.extend(0.0);
     }
 }
-// Issues in the thing pass through
-// if we move all the way throguh the thing you are colliding with you';; miss the collsion
-/*pub fn find_casted_collisions(
-    first_body: &HashMap<Entity, (&Position, &Shape, &Velocity)>, 
-    second_body: &HashMap<Entity, (&Position, &Shape, &Velocity)>
-) -> Vec<(Entity, Entity, f32)> {
-    let collisions: Vec<(Entity, Entity, f32)>;
-    for (first_entity, (first_position, first_shape, first_velocity)) in first_body {
-        for (second_entity, (second_position, second_shape, second_velocity)) in second_body {
-            let inter_angle = match (&first_shape, &second_shape) {
-                (Shape::Rect(first_size), Shape::Rect(second_size)) => 
-                    rectangles_casted_collision(
-                        &first_position.0, &first_size, &first_velocity.0, 
-                        &second_position.0, &second_size, &second_velocity.0),
-                (_, _) => {
-                    error!("Unhandled coollison");
-                    None
-                }
-            }; 
-            if let Some(angle) = inter_angle {
-                collisions.push((*first_entity, *second_entity, angle));
-            }
-        }
+
+pub fn tick_jump_times(mut query: Query<&mut Jumper>) {
+    for mut jumper in query.iter_mut() {
+        jumper.timer.tick (Duration::from_secs(PHYSICS_TIME_STEP));
     }
-    return collisions;
-}*/
+}
 
 pub fn rectangles_casted_collision(
     pos1: &Vec2, size1: &Vec2, vel1: &Vec2, 
