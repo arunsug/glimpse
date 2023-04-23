@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use crate::prelude::DEFAULT_PIXELES_PER_SCREEN_BOTTOM;
 
-pub const METERS_PER_SCREEN_BOTTOM: f32 = 20.0;
+pub const METERS_PER_SCREEN_BOTTOM: f32 = 40.0;
 
 #[derive(Component, Default)]
 pub struct GameWorld;

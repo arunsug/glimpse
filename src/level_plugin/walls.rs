@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use super::physics::*;
-use super::physics::MU;
 
 #[derive(Component, Default)]
 pub struct Wall;
@@ -18,7 +17,7 @@ pub struct WallSensor {
 #[derive(Component, Default)]
 pub struct GroundSensor(bool);
 
-const WALL_COLOR: Color = Color::rgb(0.2, 0.0, 0.2);
+const WALL_COLOR: Color = Color::rgb(0.8, 0.6, 0.0);
 
 #[derive(Bundle, Default)]
 pub struct WallBundle {
@@ -65,6 +64,7 @@ pub fn handle_wall_collisions(
         for (wall_pos, wall_shape) in wall_query.iter() {
             match (&col_shape, &wall_shape) {
                 (Shape::Rect(col_size), Shape::Rect(wall_size)) => {
+                    // Calculat the upper left position for easier fucntion calcs
                     let col_upper_left = Vec2 {x: col_pos.0.x - col_size.x*0.5, y: col_pos.0.y + col_size.y*0.5};
                     let wall_upper_left = Vec2 {x: wall_pos.0.x - wall_size.x*0.5, y: wall_pos.0.y + wall_size.y*0.5};
                     let inter_angle = rectangles_casted_collision(
@@ -100,7 +100,7 @@ pub fn handle_wall_collisions(
                     }
                 }
                 (_, _) => {
-                    error!("Unhandled coollison");
+                    error!("Unhandled wall coollison");
                 }
             };
         }

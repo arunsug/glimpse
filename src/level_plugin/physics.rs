@@ -32,12 +32,14 @@ pub struct Acceleration(pub Vec2);
 #[derive(Component, Default, Debug)]
 pub struct Position(pub Vec2);
 
+#[derive(Component, Default, Debug)]
+pub struct Rotation(pub f32);
 
 #[derive(Component)]
 pub enum Shape {
     Rect(Vec2),
-    Circle(u32),
-    Tri(Vec2, Vec2)
+    Circle(f32),
+    Poly(Vec<Vec2>)
 }
 
 impl Default for Shape {
@@ -49,9 +51,9 @@ impl Default for Shape {
 #[derive(Bundle, Default)]
 pub struct Body {
     pub position: Position,
+    pub rotation: Rotation,
     pub shape: Shape
 }
-
 
 #[derive(Bundle, Default)]
 pub struct BasePhysicsBundle {
@@ -63,10 +65,10 @@ pub struct BasePhysicsBundle {
 }
 
 #[derive(Component, Default, Debug)]
-pub struct OverrideVelocity(pub bool, pub Vec2);
+pub struct OverrideVelocity(pub Option<f32>, pub Option<f32>);
 
 #[derive(Component, Default, Debug)]
-pub struct OverrideAcceleration(pub bool, pub Vec2);
+pub struct OverrideAcceleration(pub Option<f32>, pub Option<f32>);
 
 #[derive(Component, Default, Debug)]
 pub struct AdjustVelocity(pub Vec2);
@@ -84,13 +86,6 @@ pub struct PhysicsControllerBundle {
     pub adj_acce: AdjustAcceleration
 }
 
-#[derive(Component)]
-pub struct Jumper {
-    pub is_jumping: bool,
-    pub can_jump: bool,
-    pub timer: Timer
-}
-
 pub fn apply_acceleration_adjustments(mut query: Query<(&mut Acceleration, &AdjustAcceleration)>) {
     for (mut accel, adjust) in query.iter_mut() {
         accel.0 += adjust.0;
@@ -105,16 +100,22 @@ pub fn apply_velocity_adjustments(mut query: Query<(&mut Velocity, &AdjustVeloci
 
 pub fn apply_acceleration_override(mut query: Query<(&mut Acceleration, &OverrideAcceleration)>) {
     for (mut accel, over) in query.iter_mut() {
-        if over.0 {
-            accel.0 = over.1;
+        if let Some(x) = over.0 {
+            accel.0.x = x;
+        }
+        if let Some(y) = over.1 {
+            accel.0.y = y;
         }
     }
 }
 
 pub fn apply_velocity_override(mut query: Query<(&mut Velocity, &OverrideVelocity)>) {
     for (mut vel, over) in query.iter_mut() {
-        if over.0 {
-            vel.0 = over.1;
+        if let Some(x) = over.0 {
+            vel.0.x = x;
+        }
+        if let Some(y) = over.1 {
+            vel.0.y = y;
         }
     }
 }
@@ -171,23 +172,21 @@ pub fn apply_position_to_transform(mut query: Query<(&Position, &mut Transform)>
     }
 }
 
-pub fn tick_jump_times(mut query: Query<&mut Jumper>) {
-    for mut jumper in query.iter_mut() {
-        jumper.timer.tick (Duration::from_secs(PHYSICS_TIME_STEP as u64));
+pub fn apply_rotation_to_transform(mut query: Query<(&Rotation, &mut Transform)>) {
+    for (rot, mut trans) in query.iter_mut() {
+        trans.rotation = Quat::from_rotation_z(rot.0);
     }
 }
 
+
+//pos1 and pos2 are teh upper left corner of the rect
 pub fn rectangles_casted_collision(
     pos1: &Vec2, size1: &Vec2, vel1: &Vec2, 
     pos2: &Vec2, size2: &Vec2, vel2: &Vec2
 ) -> Option<f32> {
     let cast1 = Vec2 { x:pos1.x + vel1.x * PHYSICS_TIME_STEP, y:pos1.y + vel1.y * PHYSICS_TIME_STEP };
     let cast2 = Vec2 { x:pos2.x + vel2.x * PHYSICS_TIME_STEP, y:pos2.y + vel2.y * PHYSICS_TIME_STEP };
-    if cast1.x <= cast2.x + size2.x && 
-        cast1.x + size1.x >= cast2.x &&
-        cast1.y >= cast2.y - size2.y && 
-        cast1.y - size1.y <= cast2.y 
-    {
+    if aabb_collision(&cast1, size1, &cast2, size2) {
         let horizontal = if pos1.x >= pos2.x + size2.x {
             Some((std::f32::consts::PI, (pos2.x + size2.x - pos1.x) / (vel1.x - vel2.x)))            
         } else if pos1.x + size1.x <= pos2.x {
@@ -221,6 +220,102 @@ pub fn rectangles_casted_collision(
         None
     }
 }
+
+fn detect_collision_pair(
+    pos1: &Vec2, shape1: &Shape, angle1: f32,
+    pos2: &Vec2, shape2: &Shape, angle2: f32) -> bool 
+{
+    match (shape1, shape2) {
+        (Shape::Rect(size1), Shape::Rect(size2)) => {
+            if angle1.abs() < MU && angle2.abs() < MU {
+                aabb_collision(pos1, size1, pos2, size2)
+            } else {
+                let points1 = generate_rectangle_points(pos1, size1, angle1);
+                let points2 = generate_rectangle_points(pos2, size2, angle2);
+                sat_collision(points1, points2)
+            }
+        }
+        (Shape::Circle(radius1), Shape::Circle(radius2)) => {
+            circles_collision(pos1, radius1, pos2, radius2)
+        }
+        (Shape::Circle(radius), Shape::Rect(size)) => {
+            if angle2.abs() < MU {
+                aabb_circle_collision(pos2, size, pos1, *radius)
+            } else {
+                let points = generate_rectangle_points(pos2, size, angle2);
+                sat_circle_collision(points, pos1, *radius)
+            }
+        }
+        (Shape::Rect(size), Shape::Circle(radius)) => {
+            if angle1.abs() < MU {
+                aabb_circle_collision(pos1, size, pos2, *radius)
+            } else {
+                let points = generate_rectangle_points(pos1, size, angle1);
+                sat_circle_collision(points, pos2, *radius)
+            }
+        }
+        (_,_) => {
+            panic!("Unhandled collision");
+        }
+    }
+}
+
+// TODO Shoudl I inline these fucntions
+// Check for a collision between two rectangles
+fn circles_collision(pos1: &Vec2, radius1: &f32, pos2: &Vec2, radius2: &f32) -> bool {
+    pos1.distance(*pos2) < radius1 + radius2
+}
+
+// Check for a collision between axis aligned bounding boxes (two rectangles with no rotation)
+// takes in the upper left corner of the rect
+fn aabb_collision(pos1: &Vec2, size1: &Vec2, pos2: &Vec2, size2: &Vec2) -> bool {
+    pos1.x <= pos2.x + size2.x && 
+        pos1.x + size1.x >= pos2.x &&
+        pos1.y >= pos2.y - size2.y && 
+        pos1.y - size1.y <= pos2.y
+}
+
+// Check for a collision between axis aligned bounding box and a circle
+fn aabb_circle_collision(rect_pos: &Vec2, size: &Vec2, circ_pos: &Vec2, radius: f32) -> bool {
+    let x_loc = if rect_pos.x > circ_pos.x {
+        Some(rect_pos.x)
+    } else if rect_pos.x + size.x < circ_pos.x {
+        Some(rect_pos.x + size.x)
+    } else {
+        None
+    };
+    let y_loc = if rect_pos.y < circ_pos.y {
+        Some(rect_pos.y)
+    } else if rect_pos.y - size.y > circ_pos.y {
+        Some(rect_pos.y - size.y)
+    } else {
+        None
+    };
+    match (x_loc, y_loc) {
+        (Some(x), Some(y)) => Vec2::new(x, y).distance(*circ_pos) < radius,
+        (Some(x), None) => (x - circ_pos.x).abs() < radius,
+        (None, Some(y)) => (y - circ_pos.y).abs() < radius,
+        (None, None) => true,
+    }
+}
+// TODO
+fn sat_collision(points1: Vec<Vec2>, points2: Vec<Vec2>) -> bool {
+    false
+}
+// TODO
+fn sat_circle_collision(points: Vec<Vec2>, circ_pos: &Vec2, radius: f32) -> bool {
+    false
+}
+
+fn generate_rectangle_points(pos: &Vec2, size: &Vec2, angle: f32) -> Vec<Vec2> {
+    let hori_offset = (size.x / 2.0) * Vec2::from_angle(angle).perp();
+    let vert_offset = (size.y / 2.0) * Vec2::from_angle(angle).perp();
+    vec![*pos - hori_offset + vert_offset,
+        *pos + hori_offset + vert_offset,
+        *pos + hori_offset - vert_offset,
+        *pos - hori_offset - vert_offset] 
+}
+
 
 // lets check if they are on screen for now
 // so we can ignore things that aren't

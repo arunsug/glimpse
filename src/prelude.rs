@@ -1,4 +1,4 @@
-use bevy::{prelude::*, window::WindowResized};
+use bevy::{prelude::*, window::WindowResized, render::view::window};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Default, States)]
 pub enum GlimpseState {
@@ -55,7 +55,7 @@ pub fn handle_window_resize(
     if x_pixels > 0.001 {
         let window_scale = x_pixels / DEFAULT_PIXELES_PER_SCREEN_BOTTOM;
         let mut window_transform = query.get_single_mut().unwrap();
-        window_transform.scale = Vec3 {x:window_scale , y:window_scale, z:1.0};
+        window_transform.scale = Vec3 {x:window_scale, y:window_scale, z:1.0};
     }
 }
 
