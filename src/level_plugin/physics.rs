@@ -11,7 +11,7 @@ pub enum PhysicsSet {
     CollisionDection
 }
 
-pub const PHYSICS_TIME_STEP: f32 = 1.0 / 240.0;
+pub const PHYSICS_TIME_STEP: f32 = 1.0 / 300.0;
 pub const MU: f32 = 0.0000003;
 
 #[derive(Component, Default)]
@@ -34,6 +34,9 @@ pub struct Position(pub Vec2);
 
 #[derive(Component, Default, Debug)]
 pub struct Rotation(pub f32);
+
+#[derive(Component, Default, Debug)]
+pub struct AngularVelocity(pub f32);
 
 #[derive(Component)]
 pub enum Shape {
@@ -60,6 +63,7 @@ pub struct BasePhysicsBundle {
     pub body: Body,
     pub velocity: Velocity,
     pub acceleration: Acceleration,
+    pub angular_velocity: AngularVelocity,
     pub resistance: Resistance,
     pub friction: Friction,
 }
@@ -76,6 +80,8 @@ pub struct AdjustVelocity(pub Vec2);
 #[derive(Component, Default, Debug)]
 pub struct AdjustAcceleration(pub Vec2);
 
+#[derive(Component, Default, Debug)]
+pub struct OverrideAngularVelocity(pub Option<f32>);
 
 // TODO we could do this with events instead I think
 #[derive(Bundle, Default)]
@@ -83,7 +89,8 @@ pub struct PhysicsControllerBundle {
     pub over_vel: OverrideVelocity,
     pub over_accel: OverrideAcceleration,
     pub adj_vel: AdjustVelocity,
-    pub adj_acce: AdjustAcceleration
+    pub adj_acce: AdjustAcceleration,
+    pub over_ang_vel: OverrideAngularVelocity
 }
 
 pub fn apply_acceleration_adjustments(mut query: Query<(&mut Acceleration, &AdjustAcceleration)>) {
@@ -120,6 +127,13 @@ pub fn apply_velocity_override(mut query: Query<(&mut Velocity, &OverrideVelocit
     }
 }
 
+pub fn apply_angular_velocity_override(mut query: Query<(&mut AngularVelocity, &OverrideAngularVelocity)>) {
+    for (mut ang_vel, over) in query.iter_mut() {
+        if let Some(ang) = over.0 {
+            ang_vel.0 = ang;
+        }
+    }
+}
 const GRAVITY_VECTOR: Vec2 = Vec2 { x:0.0, y:-9.8 };
 pub fn apply_gravity(mut query: Query<&mut Acceleration, With<Gravity>>) {
     for mut accel in query.iter_mut() {
@@ -154,7 +168,6 @@ pub fn apply_friction(mut query: Query<(&mut Acceleration, &Velocity, &Friction)
 pub fn apply_accel(mut query: Query<(&mut Acceleration, &mut Velocity)>){
     for (mut accel, mut vel) in query.iter_mut() {
         vel.0 += accel.0*PHYSICS_TIME_STEP;
-        debug!("apply accel vel and accel {:?}, {:?}", vel, accel);
         accel.0 = Vec2::ZERO;
     } 
 }
@@ -162,7 +175,12 @@ pub fn apply_accel(mut query: Query<(&mut Acceleration, &mut Velocity)>){
 pub fn apply_velocity(mut query: Query<(&Velocity, &mut Position)>) {
     for (vel, mut pos) in query.iter_mut() {
         pos.0 += vel.0*PHYSICS_TIME_STEP;
-        debug!("apply velocity vel and pos {:?}, {:?}\n", vel, pos);
+    }
+}
+
+pub fn apply_angular_velocity(mut query: Query<(&AngularVelocity, &mut Rotation)>) {
+    for (vel, mut rot) in query.iter_mut() {
+        rot.0 += vel.0*PHYSICS_TIME_STEP;
     }
 }
 
@@ -298,6 +316,7 @@ fn aabb_circle_collision(rect_pos: &Vec2, size: &Vec2, circ_pos: &Vec2, radius: 
         (None, None) => true,
     }
 }
+
 // TODO
 fn sat_collision(points1: Vec<Vec2>, points2: Vec<Vec2>) -> bool {
     false

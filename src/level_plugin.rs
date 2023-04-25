@@ -43,11 +43,11 @@ impl Plugin for LevelPlugin {
             // the acceleartion sometimes happens after casting which breaks teh whole thing
             .add_systems(
                 (apply_acceleration_adjustments, apply_gravity, apply_resistance, apply_friction, apply_acceleration_override, // apply forces (aka set aceeleration)
-                apply_velocity_adjustments, apply_accel, apply_velocity_override, // apply acceleration (aka set velocity)
+                apply_velocity_adjustments, apply_accel, apply_velocity_override, apply_angular_velocity_override,// apply acceleration (aka set velocity)
                 handle_wall_collisions, // hanlde casting for collisions
-                apply_velocity, //apply velocity (aka set positions) 
+                apply_velocity, apply_angular_velocity, //apply velocity (aka set positions) 
                 apply_position_to_transform, apply_rotation_to_transform).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
-            .add_systems((tick_jump_times, tick_hammer_times).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
+            .add_systems((tick_jump_times, tick_attack_times).in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
             //.configure_sets(Physics::ApplyForces)
             .add_system(cleanup_level.in_schedule(OnExit(GlimpseState::GameRunning)));
 

@@ -9,20 +9,58 @@ pub struct Player;
 #[derive(Component, Default)]
 pub struct Health(f32);
 
+#[derive(Default)]
+pub enum JumpStates {
+    Jumping(Timer),
+    Jumpable,
+    #[default]
+    Unjumpable
+}
 
-impl Default for Jumper {
-    fn default() -> Self {
-        Jumper {
-            is_jumping: false,
-            can_jump: true,
-            timer: Timer::new(Duration::from_secs_f32(PLAYER_JUMP_TIME), TimerMode::Once)
+#[derive(Component, Default)]
+pub struct Jumper {
+    // TODO replace this with an enium for cleaner modeling?
+    state: JumpStates
+}
+#[derive(Component, Default)]
+pub struct DoubleJumper {
+    // TODO replace this with an enium for cleaner modeling?
+    state: JumpStates
+}
+
+pub fn tick_jump_times(mut query: Query<&mut Jumper>) {
+    for mut jumper in query.iter_mut() {
+        if let JumpStates::Jumping(ref mut timer) = jumper.state {
+            timer.tick(Duration::from_secs_f32(PHYSICS_TIME_STEP));
         }
     }
 }
 
-pub struct DoubleJumper {
-    is_jumping: bool,
-    can_jump: bool
+#[derive(Default)]
+pub enum AttackStates {
+    Attacking(Timer, Entity),
+    #[default]
+    CanAttack,
+    NoAttack(Timer)
+}
+
+#[derive(Component, Default)]
+pub struct Attacker {
+    state: AttackStates
+}
+
+pub fn tick_attack_times(mut commands: Commands, mut query: Query<&mut Attacker>) {
+    for mut attacker in query.iter_mut() {
+        match attacker.state {
+            AttackStates::Attacking(ref mut timer, _) => {
+                timer.tick(Duration::from_secs_f32(PHYSICS_TIME_STEP));
+            }
+            AttackStates::NoAttack(ref mut timer) => {
+                timer.tick(Duration::from_secs_f32(PHYSICS_TIME_STEP));
+            }
+            _ => (),
+        }
+    }
 }
 
 const PLAYER_COLOR: Color = Color::rgb(0.2, 0.0, 0.2);
@@ -45,6 +83,7 @@ pub struct PlayerBundle {
     pub wall_sensor: WallSensor,
     pub physics_controller: PhysicsControllerBundle,
     pub jumper: Jumper,
+    pub attacker: Attacker,
     pub health: Health
 }
 
@@ -84,10 +123,9 @@ impl PlayerBundle {
 pub fn move_player(
     mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
-    time: Res<Time>,
-    mut query: Query<(Entity, &WallSensor, &mut Jumper, &mut AdjustAcceleration, &mut OverrideVelocity), With<Player>>
+    mut query: Query<(Entity, &WallSensor, &mut Jumper, &mut AdjustAcceleration, &mut OverrideVelocity, &mut Attacker), With<Player>>
 ) {
-    let (player, wall_sensor, mut jumper, mut adjust_accel, mut over_vel, ) = query.single_mut();
+    let (player, wall_sensor, mut jumper, mut adjust_accel, mut over_vel, mut attacker) = query.single_mut();
     if keyboard_input.just_pressed(KeyCode::Left) {
         adjust_accel.0 -= PLAYER_RUN_ACCEL;
     } else if keyboard_input.just_released(KeyCode::Left) {
@@ -100,45 +138,61 @@ pub fn move_player(
         adjust_accel.0 -= PLAYER_RUN_ACCEL;
     }
 
-    if jumper.is_jumping {    
-        jumper.timer.tick(time.delta());
-    }
-    if keyboard_input.pressed(KeyCode::Up) && wall_sensor.down && !jumper.is_jumping {
-        jumper.is_jumping = true;
-        //adjust_accel.0 += PLAYER_JUMP_ACCEL;
-        over_vel.1 = Some(PLAYER_JUMP_VEL.y);
-    }
-    if jumper.is_jumping && (keyboard_input.just_released(KeyCode::Up) || jumper.timer.finished()) {
-        jumper.is_jumping = false;
-        jumper.timer.reset();
-        //adjust_accel.0 -= PLAYER_JUMP_ACCEL;
-        over_vel.1 = None;
+    match &jumper.state {
+        JumpStates::Jumpable => {
+            if keyboard_input.just_pressed(KeyCode::Up) {
+                over_vel.1 = Some(PLAYER_JUMP_VEL.y);
+                jumper.state = JumpStates::Jumping(Timer::from_seconds(PLAYER_JUMP_TIME, TimerMode::Once))
+                //adjust_accel.0 += PLAYER_JUMP_ACCEL;
+            } else if !wall_sensor.down {
+                jumper.state = JumpStates::Unjumpable
+            }  
+        }
+        JumpStates::Jumping(timer) => {
+            if keyboard_input.just_released(KeyCode::Up) || timer.finished() {
+                over_vel.1 = None;
+                jumper.state = JumpStates::Unjumpable;
+                //adjust_accel.0 -= PLAYER_JUMP_ACCEL;
+            }
+        }
+        JumpStates::Unjumpable => {
+            if wall_sensor.down {
+                jumper.state = JumpStates::Jumpable;
+            }
+        }
     }
 
     if keyboard_input.pressed(KeyCode::Down) {
     }
 
-    if keyboard_input.pressed(KeyCode::V) {
-        let hammer = HammerBundle::new(HAMMER_SIZE, HAMMER_SHAFT_SIZE);
-        let shaft = commands.spawn(hammer.0).id();
-        let head = commands.spawn(hammer.1).id();
-        commands.entity(player).push_children(&[shaft]);
-        commands.entity(shaft).push_children(&[head]);
+    match &attacker.state {
+        AttackStates::CanAttack => {
+            if keyboard_input.pressed(KeyCode::V) {
+                let hammer = HammerBundle::new( 
+                    Vec2 {x:0.0, y:0.4}, HAMMER_SIZE, HAMMER_SHAFT_SIZE,
+                    0.0, HAMMER_SWING_TIME, 4.0);
+                let shaft = commands.spawn(hammer.0).id();
+                let head = commands.spawn(hammer.1).id();
+                commands.entity(player).push_children(&[shaft]);
+                commands.entity(shaft).push_children(&[head]);
+                attacker.state = AttackStates::Attacking(Timer::from_seconds(HAMMER_SWING_TIME, TimerMode::Once), shaft);
+             }
+        }
+        AttackStates::Attacking(timer, entity) => {
+            if timer.finished() {
+                commands.entity(*entity).despawn_recursive();
+                attacker.state = AttackStates::NoAttack(Timer::from_seconds(HAMMER_SWING_TIME, TimerMode::Once));
+            }
+        }
+        AttackStates::NoAttack(timer) => {
+            if timer.finished() {
+                attacker.state = AttackStates::CanAttack;
+            }
+        }
     }
 
 }
 
-#[derive(Component)]
-pub struct Jumper {
-    pub is_jumping: bool,
-    pub can_jump: bool,
-    pub timer: Timer
-}
-pub fn tick_jump_times(mut query: Query<&mut Jumper>) {
-    for mut jumper in query.iter_mut() {
-        jumper.timer.tick (Duration::from_secs(PHYSICS_TIME_STEP as u64));
-    }
-}
 
 #[cfg(debug_assertions)]
 pub fn debug_player(query: Query<(&GlobalTransform, &Visibility, &Position, &Velocity, &Acceleration), With<Player>>) {
