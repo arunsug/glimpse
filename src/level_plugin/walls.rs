@@ -8,6 +8,9 @@ pub struct Wall;
 pub struct WallCollider;
 
 #[derive(Component, Default)]
+pub struct WallDectector;
+
+#[derive(Component, Default)]
 pub struct WallSensor {
     pub left: bool,
     pub right: bool,
@@ -54,6 +57,7 @@ pub fn handle_wall_collisions(
     mut wall_collider_query: Query<(&mut Position, &Shape, &mut Velocity, Option<&mut WallSensor>), 
         (With<WallCollider>, Without<Wall>)>
 ) {
+    println!("wall collision system start");
     let zero_velocity = Velocity(Vec2::ZERO);
     for (mut col_pos, col_shape, mut col_vel, mut wall_sensor) in wall_collider_query.iter_mut() {
         if let Some(sensor) = wall_sensor.as_mut() {
@@ -105,4 +109,5 @@ pub fn handle_wall_collisions(
             };
         }
     } 
+    println!("wall collision system end");
 }

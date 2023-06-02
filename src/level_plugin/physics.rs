@@ -94,6 +94,7 @@ pub struct PhysicsControllerBundle {
 }
 
 pub fn apply_acceleration_adjustments(mut query: Query<(&mut Acceleration, &AdjustAcceleration)>) {
+    println!("aopplyu eceel adjust system start");
     for (mut accel, adjust) in query.iter_mut() {
         accel.0 += adjust.0;
     }
@@ -191,9 +192,11 @@ pub fn apply_position_to_transform(mut query: Query<(&Position, &mut Transform)>
 }
 
 pub fn apply_rotation_to_transform(mut query: Query<(&Rotation, &mut Transform)>) {
+    println!("rotation system start");
     for (rot, mut trans) in query.iter_mut() {
         trans.rotation = Quat::from_rotation_z(rot.0);
     }
+    println!("rotation system end");
 }
 
 
@@ -317,10 +320,52 @@ fn aabb_circle_collision(rect_pos: &Vec2, size: &Vec2, circ_pos: &Vec2, radius: 
     }
 }
 
+fn get_axes(points: &Vec<Vec2>) -> Vec<Vec2> {
+    let mut norms: Vec<Vec2> = Vec::new();
+    for i in 0..points.len() {
+        norms.push(points[i] - points[(i+1) % points.len()]);
+    }
+    norms.iter_mut().map(|x| x.perp().normalize()).collect()
+}
+
+fn project_shape(points: &Vec<Vec2>, axis: &Vec2) -> (f32,f32) {
+    let mut min: f32 = axis.dot(points[0]);
+    let mut max: f32 = min;
+    for i in 1..points.len() {
+        let val = axis.dot(points[i]);
+        if val < min {
+            min = val;
+        } else if val > max {
+            max = val;
+        }
+    }
+    return (min, max)
+}
+
 // TODO
 fn sat_collision(points1: Vec<Vec2>, points2: Vec<Vec2>) -> bool {
-    false
+    let axes = get_axes(&points1);
+    for axis in axes {
+        let range1 = project_shape(&points1, &axis);
+        let range2 = project_shape(&points2, &axis);
+        if range1.1 < range2.0 && range1.0 > range2.0 {
+            return false;
+        }
+    }
+    let axes = get_axes(&points2);
+    for axis in axes {
+        let range1 = project_shape(&points1, &axis);
+        let range2 = project_shape(&points2, &axis);
+        if range1.1 < range2.0 && range1.0 > range2.0 {
+            return false;
+        }
+    }
+
+    true
 }
+
+
+
 // TODO
 fn sat_circle_collision(points: Vec<Vec2>, circ_pos: &Vec2, radius: f32) -> bool {
     false

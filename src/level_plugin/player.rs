@@ -28,12 +28,14 @@ pub struct DoubleJumper {
     state: JumpStates
 }
 
-pub fn tick_jump_times(mut query: Query<&mut Jumper>) {
+pub fn tick_jump_times(mut commands: Commands, mut query: Query<&mut Jumper>) {
+    println!("ticking jupm times system start");
     for mut jumper in query.iter_mut() {
         if let JumpStates::Jumping(ref mut timer) = jumper.state {
             timer.tick(Duration::from_secs_f32(PHYSICS_TIME_STEP));
         }
     }
+    println!("ticking jupm times system end");
 }
 
 #[derive(Default)]
@@ -50,6 +52,7 @@ pub struct Attacker {
 }
 
 pub fn tick_attack_times(mut commands: Commands, mut query: Query<&mut Attacker>) {
+    println!("tick attack times system start");
     for mut attacker in query.iter_mut() {
         match attacker.state {
             AttackStates::Attacking(ref mut timer, _) => {
@@ -61,6 +64,8 @@ pub fn tick_attack_times(mut commands: Commands, mut query: Query<&mut Attacker>
             _ => (),
         }
     }
+    println!("tick attack times system end");
+    
 }
 
 const PLAYER_COLOR: Color = Color::rgb(0.2, 0.0, 0.2);
@@ -125,6 +130,7 @@ pub fn move_player(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(Entity, &WallSensor, &mut Jumper, &mut AdjustAcceleration, &mut OverrideVelocity, &mut Attacker), With<Player>>
 ) {
+    println!("move player system start");
     let (player, wall_sensor, mut jumper, mut adjust_accel, mut over_vel, mut attacker) = query.single_mut();
     if keyboard_input.just_pressed(KeyCode::Left) {
         adjust_accel.0 -= PLAYER_RUN_ACCEL;
@@ -190,6 +196,7 @@ pub fn move_player(
             }
         }
     }
+    println!("move player system end");
 
 }
 
