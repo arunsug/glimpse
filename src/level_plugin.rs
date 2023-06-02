@@ -19,13 +19,13 @@ pub struct LevelPlugin;
 
 impl Plugin for LevelPlugin {
     fn build(&self, app: &mut App) {
-        //app.add_system(setup_level.in_schedule(OnEnter(GlimpseState::GameRunning)))
-            //.add_system(move_player.in_set(OnUpdate(GlimpseState::GameRunning)))
+        app.add_system(setup_level.in_schedule(OnEnter(GlimpseState::GameRunning)))
+            .add_system(move_player.in_set(OnUpdate(GlimpseState::GameRunning)))
             
             //.add_event::<AccelerateEntityEvent>()
             //.add_event::<VelocitateEntityEvent>()
 
-            //app.insert_resource(FixedTime::new_from_secs(PHYSICS_TIME_STEP)) // set the time step for the CorSchedulei
+            .insert_resource(FixedTime::new_from_secs(PHYSICS_TIME_STEP)) // set the time step for the CorSchedulei
             // TODO i think we can avoid chaining everythign some stuff can be in parallel
             /* .add_systems((handle_acceleration_events, apply_gravity, apply_resistance, apply_friction).chain().in_set(PhysicsSet::ApplyForces)
                 .in_schedule(CoreSchedule::FixedUpdate))
@@ -42,18 +42,18 @@ impl Plugin for LevelPlugin {
 
             // we should be using the above code to schedule our physics system but it doesn't work
             // the acceleartion sometimes happens after casting which breaks teh whole thing
-            //.add_systems((//apply_acceleration_adjustments, apply_gravity, apply_resistance, apply_friction, apply_acceleration_override, // apply forces (aka set aceeleration)
-                //apply_velocity_adjustments, apply_accel, apply_velocity_override, apply_angular_velocity_override,// apply acceleration (aka set velocity)
-              //  handle_wall_collisions, // hanlde casting for collisions
-              //  apply_velocity, apply_angular_velocity, //apply velocity (aka set positions) 
-               // apply_position_to_transform, apply_rotation_to_transform).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
-            //.add_systems((tick_jump_times, tick_attack_times).in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
+            .add_systems((apply_acceleration_adjustments, apply_gravity, apply_resistance, apply_friction, apply_acceleration_override, // apply forces (aka set aceeleration)
+                apply_velocity_adjustments, apply_accel, apply_velocity_override, apply_angular_velocity_override,// apply acceleration (aka set velocity)
+                handle_wall_collisions, // hanlde casting for collisions
+                apply_velocity, apply_angular_velocity, //apply velocity (aka set positions) 
+                apply_position_to_transform, apply_rotation_to_transform).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
+            .add_systems((tick_jump_times, tick_attack_times).in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
             
             //.configure_sets(Physics::ApplyForces)
-            //.add_system(cleanup_level.in_schedule(OnExit(GlimpseState::GameRunning)));
+            .add_system(cleanup_level.in_schedule(OnExit(GlimpseState::GameRunning)));
 
-        //#[cfg(debug_assertions)]
-        //app.add_system(debug_player.in_set(OnUpdate(GlimpseState::GameRunning)));
+        #[cfg(debug_assertions)]
+        app.add_system(debug_player.in_set(OnUpdate(GlimpseState::GameRunning)));
     }
 }
 

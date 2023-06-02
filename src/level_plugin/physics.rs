@@ -94,7 +94,6 @@ pub struct PhysicsControllerBundle {
 }
 
 pub fn apply_acceleration_adjustments(mut query: Query<(&mut Acceleration, &AdjustAcceleration)>) {
-    println!("aopplyu eceel adjust system start");
     for (mut accel, adjust) in query.iter_mut() {
         accel.0 += adjust.0;
     }
@@ -192,11 +191,9 @@ pub fn apply_position_to_transform(mut query: Query<(&Position, &mut Transform)>
 }
 
 pub fn apply_rotation_to_transform(mut query: Query<(&Rotation, &mut Transform)>) {
-    println!("rotation system start");
     for (rot, mut trans) in query.iter_mut() {
         trans.rotation = Quat::from_rotation_z(rot.0);
     }
-    println!("rotation system end");
 }
 
 

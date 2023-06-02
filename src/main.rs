@@ -17,17 +17,17 @@ fn main() {
             medium: Vec2::new(800.0, 600.0),
             small: Vec2::new(640.0, 360.0),
         })
-        .add_plugins(DefaultPlugins/* .set(LogPlugin {
+        .add_plugins(DefaultPlugins.set(LogPlugin {
             level: bevy::log::Level::ERROR,
             filter: "glimpse=debug".into(),
-        })*/)
-        //.add_plugin(LogDiagnosticsPlugin::default())
-        //.add_plugin(FrameTimeDiagnosticsPlugin::default())
-        //.add_state::<GlimpseState>()
-        //.add_plugin(LevelPlugin)
-        //.add_startup_system(setup)
-        //.add_system(toggle_resolution)
-        //.add_system(handle_window_resize)
+        }))
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_state::<GlimpseState>()
+        .add_plugin(LevelPlugin)
+        .add_startup_system(setup)
+        .add_system(toggle_resolution)
+        .add_system(handle_window_resize)
         .run();
 }
 
