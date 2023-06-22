@@ -84,7 +84,8 @@ pub struct PlayerBundle {
     pub physics_controller: PhysicsControllerBundle,
     pub jumper: Jumper,
     pub attacker: Attacker,
-    pub health: Health
+    pub health: Health,
+    pub collider: Collider
 }
 
 impl PlayerBundle {

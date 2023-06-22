@@ -46,7 +46,8 @@ impl Plugin for LevelPlugin {
                 apply_velocity_adjustments, apply_accel, apply_velocity_override, apply_angular_velocity_override,// apply acceleration (aka set velocity)
                 handle_wall_collisions, // hanlde casting for collisions
                 apply_velocity, apply_angular_velocity, //apply velocity (aka set positions) 
-                apply_position_to_transform, apply_rotation_to_transform).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
+                apply_position_to_transform, apply_rotation_to_transform, // modify transforms
+                narrow_phase).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
             .add_systems((tick_jump_times, tick_attack_times).in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
             
             //.configure_sets(Physics::ApplyForces)
@@ -89,13 +90,17 @@ fn setup_level(mut commands: Commands, query: Query<Entity, With<GlimpseWindow>>
     let wall3 = commands.spawn(WallBundle::new(Vec2 {x: 7.0, y:-3.0}, Vec2 {x:4.0 , y:0.5})).id();
     let wall4 = commands.spawn(WallBundle::new(Vec2 {x: -11.0, y:-4.0}, Vec2 {x:5.0 , y:0.5})).id();
     let wall5 = commands.spawn(WallBundle::new(Vec2 {x: -14.0, y:0.0}, Vec2 {x:5.0 , y:0.5})).id();
+    let wall6 = commands.spawn(WallBundle::new(Vec2 {x: -14.0, y:2.0}, Vec2 {x:1.0 , y:0.5})).id();
+    let wall7 = commands.spawn(WallBundle::new(Vec2 {x: -16.0, y:4.0}, Vec2 {x:1.0 , y:0.5})).id();
+    let wall8 = commands.spawn(WallBundle::new(Vec2 {x: -18.0, y:6.0}, Vec2 {x:1.0 , y:0.5})).id();
+    let wall9 = commands.spawn(WallBundle::new(Vec2 {x: -20.0, y:8.0}, Vec2 {x:1.0 , y:0.5})).id();
 
     let window = query.get_single().unwrap();
     commands.entity(window).push_children(&[world]);
     commands.entity(player).push_children(&[baby]);
     commands.entity(world).push_children(&[player]);
     commands.entity(world).push_children(&[enemy]);
-    commands.entity(world).push_children(&[wall, wall1, wall2, wall3, wall4, wall5]);
+    commands.entity(world).push_children(&[wall, wall1, wall2, wall3, wall4, wall5, wall6, wall7, wall8, wall9]);
     println!("setting up level end");
 }
 

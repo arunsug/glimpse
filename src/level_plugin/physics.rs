@@ -51,6 +51,9 @@ impl Default for Shape {
     }
 }
 
+#[derive(Component, Default)]
+pub struct Collider;
+
 #[derive(Bundle, Default)]
 pub struct Body {
     pub position: Position,
@@ -390,7 +393,36 @@ fn broad_phase() {
 }
 
 // here is where we check the pairs
-fn narow_phase() {
+// how shoudl we do this passing pairs to this? events?
+// directly passing the pairs as a vector of tuples somehow?
 
+//how do we act on the pairs, a big match statment? somehow calling a function of each entity and matchign there?
+/* 
+match
+    player, enemy
+    enemy, player
+
+or
+
+enemy.collider(player)
+player.collider(enemy)
+
+enemy
+    collider() {
+        match
+            player
+            hazard
+    }
+
+*/
+// for now keep it simple
+pub fn narrow_phase(
+    query: Query<(Entity, &Shape, &Position, &Rotation, &Collider)>
+) {
+    for [(entity1, shape1, position1, rotation1, collider1), (entity2, shape2, position2, rotation2, collider2)] in query.iter_combinations() {
+        if detect_collision_pair(&(position1.0), shape1, rotation1.0, &(position2.0), shape2, rotation2.0) {
+            print!("collided \n");
+        }
+    }
 }
 

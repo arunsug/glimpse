@@ -21,7 +21,8 @@ pub struct EnemyBundle {
     pub physics: BasePhysicsBundle,
     pub gravity: Gravity,
     pub wall_collider: WallCollider,
-    pub wall_sensor: WallSensor
+    pub wall_sensor: WallSensor,
+    pub collider: Collider
 }
 
 impl EnemyBundle {
