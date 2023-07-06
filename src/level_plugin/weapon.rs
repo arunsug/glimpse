@@ -33,7 +33,8 @@ pub struct HammerShaftBundle {
 pub struct HammerBundle {
     pub hammer: Hammer,
     pub sprite_bundle: SpriteBundle,
-    pub body: Body
+    pub body: Body,
+    pub collider: Collider
 }
 
 impl HammerBundle {
@@ -59,7 +60,8 @@ impl HammerBundle {
             body: Body {
                 shape: Shape::Rect(shaft_size),
                 position: Position(position),
-                rotation: Rotation(start_angle)
+                rotation: Rotation(start_angle),
+                ..default()
             },
             angular_velocity: AngularVelocity(angular_velocity),
             ..default()

@@ -57,6 +57,7 @@ pub fn handle_wall_collisions(
     mut wall_collider_query: Query<(&mut Position, &Shape, &mut Velocity, Option<&mut WallSensor>), 
         (With<WallCollider>, Without<Wall>)>
 ) {
+    eprintln!("cast");
     let zero_velocity = Velocity(Vec2::ZERO);
     for (mut col_pos, col_shape, mut col_vel, mut wall_sensor) in wall_collider_query.iter_mut() {
         if let Some(sensor) = wall_sensor.as_mut() {

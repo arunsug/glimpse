@@ -5,10 +5,13 @@ use bevy::utils::Duration;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum PhysicsSet {
     ApplyForces,
+    OverrideAcceleration,
     ApplyAcceleration,
+    OverrideVelocity,
     CastedCollisionDetection,
     ApplyVelocity,
-    CollisionDection
+    ModifyTransform,
+    CollisionDetection
 }
 
 pub const PHYSICS_TIME_STEP: f32 = 1.0 / 300.0;
@@ -36,7 +39,22 @@ pub struct Position(pub Vec2);
 pub struct Rotation(pub f32);
 
 #[derive(Component, Default, Debug)]
+pub struct GlobalPosition(pub Vec2);
+
+#[derive(Component, Default, Debug)]
+pub struct GlobalRotation(pub f32);
+
+#[derive(Component, Default, Debug)]
 pub struct AngularVelocity(pub f32);
+
+#[derive(Component, Debug, Clone)]
+pub struct TwoDimTrans(pub Mat3);
+
+impl Default for TwoDimTrans {
+    fn default() -> Self {
+        TwoDimTrans(Mat3::IDENTITY)
+    }
+}
 
 #[derive(Component)]
 pub enum Shape {
@@ -58,6 +76,9 @@ pub struct Collider;
 pub struct Body {
     pub position: Position,
     pub rotation: Rotation,
+    pub transform: TwoDimTrans,
+    pub global_position: GlobalPosition,
+    pub global_rotations: GlobalRotation,
     pub shape: Shape
 }
 
@@ -96,19 +117,23 @@ pub struct PhysicsControllerBundle {
     pub over_ang_vel: OverrideAngularVelocity
 }
 
+
 pub fn apply_acceleration_adjustments(mut query: Query<(&mut Acceleration, &AdjustAcceleration)>) {
+    eprintln!("apply_acceleration_adjustments");
     for (mut accel, adjust) in query.iter_mut() {
         accel.0 += adjust.0;
     }
 }
 
 pub fn apply_velocity_adjustments(mut query: Query<(&mut Velocity, &AdjustVelocity)>) {
+    eprintln!("apply_velocity_adjustments");
     for (mut vel, adjust) in query.iter_mut() {
         vel.0 += adjust.0;
     }
 }
 
 pub fn apply_acceleration_override(mut query: Query<(&mut Acceleration, &OverrideAcceleration)>) {
+    eprintln!("apply_acceleration_override");
     for (mut accel, over) in query.iter_mut() {
         if let Some(x) = over.0 {
             accel.0.x = x;
@@ -120,6 +145,7 @@ pub fn apply_acceleration_override(mut query: Query<(&mut Acceleration, &Overrid
 }
 
 pub fn apply_velocity_override(mut query: Query<(&mut Velocity, &OverrideVelocity)>) {
+    eprintln!("apply_velocity_override");
     for (mut vel, over) in query.iter_mut() {
         if let Some(x) = over.0 {
             vel.0.x = x;
@@ -131,6 +157,7 @@ pub fn apply_velocity_override(mut query: Query<(&mut Velocity, &OverrideVelocit
 }
 
 pub fn apply_angular_velocity_override(mut query: Query<(&mut AngularVelocity, &OverrideAngularVelocity)>) {
+    eprintln!("apply_angular_velocity_override");
     for (mut ang_vel, over) in query.iter_mut() {
         if let Some(ang) = over.0 {
             ang_vel.0 = ang;
@@ -139,6 +166,7 @@ pub fn apply_angular_velocity_override(mut query: Query<(&mut AngularVelocity, &
 }
 const GRAVITY_VECTOR: Vec2 = Vec2 { x:0.0, y:-9.8 };
 pub fn apply_gravity(mut query: Query<&mut Acceleration, With<Gravity>>) {
+    eprintln!("apply_gravity");
     for mut accel in query.iter_mut() {
         accel.0 += GRAVITY_VECTOR;
     }
@@ -146,6 +174,7 @@ pub fn apply_gravity(mut query: Query<&mut Acceleration, With<Gravity>>) {
 
 // we are tyring to fix the drifting left bug
 pub fn apply_resistance(mut query: Query<(&mut Acceleration, &Velocity, &Resistance)>) {
+    eprintln!("apply_resistance");
     for (mut accel, vel, resist) in query.iter_mut() {
         if vel.0.x.abs() > MU {
             accel.0.x -= vel.0.x * vel.0.x * resist.0.x * vel.0.signum().x;
@@ -158,6 +187,7 @@ pub fn apply_resistance(mut query: Query<(&mut Acceleration, &Velocity, &Resista
 
 // TODO fix the drifitn gleft bug
 pub fn apply_friction(mut query: Query<(&mut Acceleration, &Velocity, &Friction)>) {
+    eprintln!("apply_friction");
     for (mut accel, vel, friction) in query.iter_mut() {
         if vel.0.x.abs() > MU {
             accel.0.x -= vel.0.signum().x * friction.0.x;
@@ -169,6 +199,7 @@ pub fn apply_friction(mut query: Query<(&mut Acceleration, &Velocity, &Friction)
 }
 
 pub fn apply_accel(mut query: Query<(&mut Acceleration, &mut Velocity)>){
+    eprintln!("apply_accel");
     for (mut accel, mut vel) in query.iter_mut() {
         vel.0 += accel.0*PHYSICS_TIME_STEP;
         accel.0 = Vec2::ZERO;
@@ -176,24 +207,28 @@ pub fn apply_accel(mut query: Query<(&mut Acceleration, &mut Velocity)>){
 }
 
 pub fn apply_velocity(mut query: Query<(&Velocity, &mut Position)>) {
+    eprintln!("apply_velocity");
     for (vel, mut pos) in query.iter_mut() {
         pos.0 += vel.0*PHYSICS_TIME_STEP;
     }
 }
 
 pub fn apply_angular_velocity(mut query: Query<(&AngularVelocity, &mut Rotation)>) {
+    eprintln!("apply_angular_velocity");
     for (vel, mut rot) in query.iter_mut() {
         rot.0 += vel.0*PHYSICS_TIME_STEP;
     }
 }
 
 pub fn apply_position_to_transform(mut query: Query<(&Position, &mut Transform)>) {
+    eprintln!("apply_position_to_transform");
     for (pos, mut trans) in query.iter_mut() {
         trans.translation = pos.0.extend(0.0);
     }
 }
 
 pub fn apply_rotation_to_transform(mut query: Query<(&Rotation, &mut Transform)>) {
+    eprintln!("apply_rotation_to_transform");
     for (rot, mut trans) in query.iter_mut() {
         trans.rotation = Quat::from_rotation_z(rot.0);
     }
@@ -249,10 +284,12 @@ fn detect_collision_pair(
     match (shape1, shape2) {
         (Shape::Rect(size1), Shape::Rect(size2)) => {
             if angle1.abs() < MU && angle2.abs() < MU {
+                print!("angle1: {}, angle2: {} ", angle1, angle2);
                 aabb_collision(pos1, size1, pos2, size2)
             } else {
                 let points1 = generate_rectangle_points(pos1, size1, angle1);
                 let points2 = generate_rectangle_points(pos2, size2, angle2);
+                //print!("{:?}, {:?} ", points1, points2);
                 sat_collision(points1, points2)
             }
         }
@@ -372,7 +409,7 @@ fn sat_circle_collision(points: Vec<Vec2>, circ_pos: &Vec2, radius: f32) -> bool
 }
 
 fn generate_rectangle_points(pos: &Vec2, size: &Vec2, angle: f32) -> Vec<Vec2> {
-    let hori_offset = (size.x / 2.0) * Vec2::from_angle(angle).perp();
+    let hori_offset = (size.x / 2.0) * Vec2::from_angle(angle);
     let vert_offset = (size.y / 2.0) * Vec2::from_angle(angle).perp();
     vec![*pos - hori_offset + vert_offset,
         *pos + hori_offset + vert_offset,
@@ -416,11 +453,13 @@ enemy
 
 */
 // for now keep it simple
-pub fn narrow_phase(
-    query: Query<(Entity, &Shape, &Position, &Rotation, &Collider)>
-) {
-    for [(entity1, shape1, position1, rotation1, collider1), (entity2, shape2, position2, rotation2, collider2)] in query.iter_combinations() {
-        if detect_collision_pair(&(position1.0), shape1, rotation1.0, &(position2.0), shape2, rotation2.0) {
+pub fn narrow_phase(query: Query<(Entity, &Shape, &GlobalTransform, &Collider)>) {
+    eprintln!("narrow_phase");
+    for [(entity1, shape1, transform1, collider1), (entity2, shape2, &transform2, collider2)] in query.iter_combinations() {
+        //print!("{:?}, {:?}\n", entity1, entity2);
+        let trans1 = transform1.to_scale_rotation_translation();
+        let trans2 = transform2.to_scale_rotation_translation();
+        if detect_collision_pair(&(trans1.2.truncate()), shape1, trans2.1.z, &(trans2.2.truncate()), shape2, trans2.1.z) {
             print!("collided \n");
         }
     }

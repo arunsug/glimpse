@@ -5,6 +5,7 @@ mod walls;
 mod enemy;
 mod weapon;
 
+use bevy::ecs::schedule::{LogLevel, ScheduleBuildSettings};
 use bevy::prelude::*;
 
 use crate::prelude::*;
@@ -27,30 +28,48 @@ impl Plugin for LevelPlugin {
 
             .insert_resource(FixedTime::new_from_secs(PHYSICS_TIME_STEP)) // set the time step for the CorSchedulei
             // TODO i think we can avoid chaining everythign some stuff can be in parallel
-            /* .add_systems((handle_acceleration_events, apply_gravity, apply_resistance, apply_friction).chain().in_set(PhysicsSet::ApplyForces)
+            .add_systems((apply_acceleration_adjustments, apply_gravity, apply_resistance, apply_friction).in_set(PhysicsSet::ApplyForces)
                 .in_schedule(CoreSchedule::FixedUpdate))
-            .add_systems((apply_accel, handle_velocity_events).chain().in_set(PhysicsSet::ApplyAcceleration)
+            .add_system(apply_acceleration_override.in_set(PhysicsSet::OverrideAcceleration).in_schedule(CoreSchedule::FixedUpdate))
+            .add_systems((apply_accel, apply_velocity_adjustments).in_set(PhysicsSet::ApplyAcceleration)
                 .in_schedule(CoreSchedule::FixedUpdate))
-            .add_system(.in_set(PhysicsSet::CastedCollisionDetection)
+            .add_systems((apply_velocity_override, apply_angular_velocity_override).in_set(PhysicsSet::OverrideVelocity)
+                    .in_schedule(CoreSchedule::FixedUpdate))
+            .add_system(handle_wall_collisions.in_set(PhysicsSet::CastedCollisionDetection)
                 .in_schedule(CoreSchedule::FixedUpdate))
-            .add_systems((apply_velocity, apply_position_to_transform).chain().in_set(PhysicsSet::ApplyVelocity)
+            .add_systems((apply_velocity, apply_angular_velocity).in_set(PhysicsSet::ApplyVelocity)
                 .in_schedule(CoreSchedule::FixedUpdate))
-            //.add_system(apply.in_set(PhysicsSet::CollisionDetection))
-            .configure_sets((PhysicsSet::ApplyForces, PhysicsSet::ApplyAcceleration, 
-                PhysicsSet::CastedCollisionDetection, PhysicsSet::ApplyVelocity, 
-                PhysicsSet::CollisionDection).chain())*/
+            .add_systems((apply_position_to_transform,apply_rotation_to_transform, propagate_transform).in_set(PhysicsSet::ModifyTransform)
+                .in_schedule(CoreSchedule::FixedUpdate))
+            .add_system(narrow_phase.in_set(PhysicsSet::CollisionDetection))
+            .configure_set(PhysicsSet::ApplyForces.before(PhysicsSet::OverrideAcceleration))
+            .configure_set(PhysicsSet::OverrideAcceleration.before(PhysicsSet::ApplyAcceleration))
+            .configure_set(PhysicsSet::ApplyAcceleration.before(PhysicsSet::OverrideVelocity))
+            .configure_set(PhysicsSet::OverrideVelocity.before(PhysicsSet::CastedCollisionDetection))
+            .configure_set(PhysicsSet::CastedCollisionDetection.before(PhysicsSet::ApplyVelocity))
+            .configure_set(PhysicsSet::ApplyVelocity.before(PhysicsSet::ModifyTransform))
+            .configure_set(PhysicsSet::ModifyTransform.before(PhysicsSet::CollisionDetection))
+            .edit_schedule(CoreSchedule::FixedUpdate, |schedule| {
+                schedule.set_build_settings(ScheduleBuildSettings {
+                    ambiguity_detection: LogLevel::Warn,
+                    ..default()
+                });
+            })
+            /* .configure_sets((PhysicsSet::ApplyForces, PhysicsSet::OverrideAcceleration, PhysicsSet::ApplyAcceleration, 
+                PhysicsSet::OverrideVelocity, PhysicsSet::CastedCollisionDetection, PhysicsSet::ApplyVelocity, 
+                PhysicsSet::ModifyTransform, PhysicsSet::CollisionDetection).chain())*/
 
             // we should be using the above code to schedule our physics system but it doesn't work
             // the acceleartion sometimes happens after casting which breaks teh whole thing
-            .add_systems((apply_acceleration_adjustments, apply_gravity, apply_resistance, apply_friction, apply_acceleration_override, // apply forces (aka set aceeleration)
+            /* .add_systems((apply_acceleration_adjustments, apply_gravity, apply_resistance, apply_friction, apply_acceleration_override, // apply forces (aka set aceeleration)
                 apply_velocity_adjustments, apply_accel, apply_velocity_override, apply_angular_velocity_override,// apply acceleration (aka set velocity)
                 handle_wall_collisions, // hanlde casting for collisions
                 apply_velocity, apply_angular_velocity, //apply velocity (aka set positions) 
-                apply_position_to_transform, apply_rotation_to_transform, // modify transforms
-                narrow_phase).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
-            .add_systems((tick_jump_times, tick_attack_times).in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))
-            
-            //.configure_sets(Physics::ApplyForces)
+                apply_position_to_transform, apply_rotation_to_transform, 
+                propagate_transform, // modify transforms
+                narrow_phase).chain().in_set(PhysicsSet::CollisionDection).in_schedule(CoreSchedule::FixedUpdate))*/
+                // TODO the issue is that there are just to many things in the chain i need to break it up apparently
+            .add_systems((tick_jump_times, tick_attack_times).in_set(PhysicsSet::CollisionDetection))
             .add_system(cleanup_level.in_schedule(OnExit(GlimpseState::GameRunning)));
 
         #[cfg(debug_assertions)]
